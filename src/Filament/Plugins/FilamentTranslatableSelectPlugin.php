@@ -106,8 +106,6 @@ class FilamentTranslatableSelectPlugin implements Plugin
                         ->getClone()
                         ->name("{$field->getName()}.{$locale}")
                         ->statePath("{$field->getStatePath(false)}.{$locale}")
-                        ->hiddenLabel()
-                        ->label(false) // The label will be on the container Selectet
                         ->hidden(function (callable $get) use ($selectorStatePath, $locale, $defaultLocale) {
                             // Show this field only if its locale matches the selector's value
                             $activeLocale = $get($selectorStatePath) ?? $defaultLocale;
