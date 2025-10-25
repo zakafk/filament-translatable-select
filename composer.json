@@ -1,0 +1,39 @@
+{
+  "name": "zakafk/filament-translatable-select",
+  "description": "This package adds a way to interact with zakafk/translatable-select in Filament.",
+  "homepage": "https://github.com/zakafk/filament-translatable-select",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Zak Afk",
+      "email": "hi@zak.ge"
+    }
+  ],
+  "require": {
+    "php": "^8.1",
+    "filament/filament": "^4.0",
+    "laravel/framework": "^10.0|^11.0|^12.0",
+    "spatie/laravel-package-tools": "^1.16",
+    "spatie/laravel-translatable": "^6.6"
+  },
+  "autoload": {
+    "psr-4": {
+      "Zakafk\\FilamentTranslatableSelect\\": "src/"
+    },
+    "files": [
+      "src\\Helpers\\helpers.php"
+    ]
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Zakafk\\FilamentTranslatableSelect\\FilamentTranslatableSelectServiceProvider"
+      ]
+    }
+  },
+  "config": {
+    "sort-packages": true
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}
