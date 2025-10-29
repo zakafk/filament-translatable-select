@@ -9,6 +9,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Forms\Components\Select;
 use Filament\Panel;
+use Filament\Schemas\Components\Flex;
 
 class FilamentTranslatableSelectPlugin implements Plugin
 {
@@ -136,13 +137,18 @@ class FilamentTranslatableSelectPlugin implements Plugin
 
 
             return
-                Grid::make(12)
-                ->dense()
-                ->schema([
+                Flex::make([
                     Group::make()->gap(0)->schema($clonedSelect)->columnSpan($isLocaleHidden ? 12 : 8),
-                    $localeSelector->columnSpan(4)->hidden($isLocaleHidden),
-                ])
-                ->columnSpan($this->getColumnSpan());
+                    $localeSelector->columnSpan(4)->hidden($isLocaleHidden)->grow(false),
+                ])->columnSpan($this->getColumnSpan());
+
+            // Grid::make(12)
+            // ->dense()
+            // ->schema([
+            //     Group::make()->gap(0)->schema($clonedSelect)->columnSpan($isLocaleHidden ? 12 : 8),
+            //     $localeSelector->columnSpan(4)->hidden($isLocaleHidden),
+            // ])
+            // ->columnSpan($this->getColumnSpan());
         });
     }
 }
