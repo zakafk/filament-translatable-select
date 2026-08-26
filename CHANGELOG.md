@@ -2,7 +2,7 @@
 
 All notable changes to `filament-translatable-select` will be documented in this file.
 
-## Unreleased
+## 1.0.4 - 2026-08-27
 
 ### Fixed
 
