@@ -129,12 +129,46 @@ TextInput::make('name')
     ]);
 ```
 
-### Good to know
+### Good to know / caveats
 
-This package will substitute the original field with a `Filament\Forms\Components\Tabs` component. This component will render the original field for each locale.
+**`->translatable()` must be the last call in the chain.** It does not return the
+field: it substitutes it with a `Filament\Schemas\Components\Flex` that holds one
+clone of the field per locale plus the locale selector.
 
-All chained methods you add before calling `->translatable()` will be applied to the original field.
-All chained methods you add after calling `->translatable()` will be applied to the `Filament\Forms\Components\Tabs` component.
+```php
+// ✅ correct
+TextInput::make('name')->label('Name')->maxLength(255)->translatable()
+
+// ❌ throws BadMethodCallException — Flex has no maxLength()
+TextInput::make('name')->translatable()->maxLength(255)
+```
+
+Everything chained **before** `->translatable()` is applied to the field itself and
+is therefore copied to every locale clone. `columnSpan()` and `columnStart()` are
+additionally forwarded to the wrapping `Flex`, so the field keeps its place in the
+grid.
+
+**Every locale is always rendered and dehydrated.** Switching locales is a purely
+client-side operation (Filament's `visibleJs()`), so it costs no network request
+and never drops the values of the locales that are off screen.
+
+**Validation errors of hidden locales stay visible.** Each locale clone gets a
+`validationAttribute` suffixed with the locale (e.g. *Name (English)*), errors of a
+locale that is not on screen are summarised underneath the field, and the locale
+selector marks affected locales with a `⚠`.
+
+**The active locale lives in the form state** under
+`__translatable_locale_{field}`. It is never dehydrated, so it never reaches your
+model.
+
+## Translations
+
+The locale selector is labelled for screen readers only. If you need to translate
+or override that label, publish the language files:
+
+```bash
+php artisan vendor:publish --tag="filament-translatable-select-translations"
+```
 
 ## Laravel support
 

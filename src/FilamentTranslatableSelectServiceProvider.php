@@ -12,6 +12,7 @@ class FilamentTranslatableSelectServiceProvider extends PackageServiceProvider
     {
         $package
             ->name('filament-translatable-select')
+            ->hasTranslations()
             ->hasInstallCommand(function (InstallCommand $command) {
                 $composerFile = file_get_contents(__DIR__ . '/../composer.json');
 

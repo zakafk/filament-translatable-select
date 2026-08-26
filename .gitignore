@@ -6,3 +6,5 @@ package-lock.json
 composer.phar
 composer.lock
 .DS_Store
+/.phpunit.cache
+.phpunit.result.cache

@@ -4,16 +4,20 @@ namespace Zakafk\FilamentTranslatableSelect\Filament\Plugins;
 
 use Closure;
 use Filament\Contracts\Plugin;
-use Filament\Forms\Components\Field;
-use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Group;
-use Filament\Forms\Components\Select;
 use Filament\Panel;
-use Filament\Schemas\Components\Flex;
+use RuntimeException;
+use Zakafk\FilamentTranslatableSelect\Filament\Macros\TranslatableFieldMacro;
 
 class FilamentTranslatableSelectPlugin implements Plugin
 {
+    /**
+     * Prefix for the (never dehydrated) form state key that holds the active
+     * locale, kept deliberately unlikely to collide with a model attribute.
+     */
+    public const LOCALE_STATE_PREFIX = '__translatable_locale_';
+
     protected array|Closure $supportedLocales = [];
+
     protected bool|Closure $isLocaleHidden = false;
 
     public static function make(): static
@@ -23,7 +27,16 @@ class FilamentTranslatableSelectPlugin implements Plugin
 
     public static function get(): static
     {
-        return filament(app(static::class)->getId());
+        $plugin = filament(app(static::class)->getId());
+
+        if (! $plugin instanceof static) {
+            throw new RuntimeException(sprintf(
+                'The [%s] plugin is not registered on the current panel.',
+                static::class,
+            ));
+        }
+
+        return $plugin;
     }
 
     public function getId(): string
@@ -34,7 +47,15 @@ class FilamentTranslatableSelectPlugin implements Plugin
     public function setLocaleHidden(bool|Closure $isLocaleHidden): static
     {
         $this->isLocaleHidden = $isLocaleHidden;
+
         return $this;
+    }
+
+    public function isLocaleHidden(): bool
+    {
+        return (bool) ($this->isLocaleHidden instanceof Closure
+            ? ($this->isLocaleHidden)()
+            : $this->isLocaleHidden);
     }
 
     public function supportedLocales(array|Closure $supportedLocales): static
@@ -44,15 +65,46 @@ class FilamentTranslatableSelectPlugin implements Plugin
         return $this;
     }
 
+    /**
+     * @return array<string, string>
+     */
     public function getSupportedLocales(): array
     {
-        $locales = is_callable($this->supportedLocales) ? call_user_func($this->supportedLocales) : $this->supportedLocales;
+        $locales = $this->supportedLocales instanceof Closure
+            ? ($this->supportedLocales)()
+            : $this->supportedLocales;
 
+        return static::normalizeLocales($locales);
+    }
+
+    /**
+     * Accepts `['en', 'ka']`, `['en' => 'English', 'ka' => 'Georgian']` or a mix
+     * of both, and always returns `[locale => label]`. Falls back to the
+     * application locale when nothing is configured.
+     *
+     * @param  array<int|string, string>  $locales
+     * @return array<string, string>
+     */
+    public static function normalizeLocales(array $locales): array
+    {
         if (empty($locales)) {
-            $locales[] = config('app.locale');
+            $locales = [config('app.locale')];
         }
 
-        return $locales;
+        $normalized = [];
+
+        foreach ($locales as $key => $label) {
+            $locale = is_string($key) ? $key : $label;
+
+            $normalized[$locale] = is_string($key) ? $label : strtoupper($locale);
+        }
+
+        return $normalized;
+    }
+
+    public static function getLocaleStatePath(string $fieldStatePath): string
+    {
+        return static::LOCALE_STATE_PREFIX . str_replace('.', '_', $fieldStatePath);
     }
 
     public function register(Panel $panel): void
@@ -62,93 +114,6 @@ class FilamentTranslatableSelectPlugin implements Plugin
 
     public function boot(Panel $panel): void
     {
-        $supportedLocales = $this->getSupportedLocales();
-        $isLocaleHidden = is_callable($this->isLocaleHidden)
-            ? call_user_func($this->isLocaleHidden)
-            : $this->isLocaleHidden;
-
-        Field::macro('translatable', function (bool $translatable = true, ?array $customLocales = null, ?array $localeSpecificRules = null) use ($supportedLocales, $isLocaleHidden) {
-            if (! $translatable) {
-                return $this;
-            }
-
-            /**
-             * @var Field $field
-             * @var Field $this
-             */
-            $field = $this->getClone();
-
-            $selectorStatePath = $field->getStatePath(false) . '_active_locale';
-
-            $locales = $customLocales ?? $supportedLocales;
-            $localeOptions = collect($locales)
-                ->mapWithKeys(function ($label, $key) {
-                    $locale = is_string($key) ? $key : $label;
-                    $label = is_string($key) ? $label : strtoupper($locale);
-                    return [$locale => $label];
-                });
-
-            $defaultLocale = app()->getLocale();
-            if (!array_key_exists($defaultLocale, $localeOptions->all())) {
-                $defaultLocale = $localeOptions->keys()->first();
-            }
-
-            $clonedSelect = $localeOptions
-                ->map(function ($label, $locale) use ($field, $localeSpecificRules, $selectorStatePath, $defaultLocale) {
-
-                    $clone = $field
-                        ->getClone()
-                        ->hiddenLabel(function (callable $get) use ($selectorStatePath, $locale, $defaultLocale) {
-                            $activeLocale = $get($selectorStatePath) ?? $defaultLocale;
-
-                            if ($activeLocale !== $locale) {
-                                return true;
-                            }
-                            return false;
-                        })
-                        ->name("{$field->getName()}.{$locale}")
-                        ->statePath("{$field->getStatePath(false)}.{$locale}")
-                        ->extraAttributes(function (callable $get) use ($selectorStatePath, $locale, $defaultLocale) {
-                            $activeLocale = $get($selectorStatePath) ?? $defaultLocale;
-
-                            if ($activeLocale !== $locale) {
-                                return ['style' => 'display: none;'];
-                            }
-                            return [];
-                        });
-
-                    if ($localeSpecificRules && isset($localeSpecificRules[$locale])) {
-                        $clone->rules($localeSpecificRules[$locale]);
-                    }
-
-                    return $clone;
-                })
-                ->all();
-
-            // Create the Select component to switch locales
-            $localeSelector = Select::make($selectorStatePath)
-                ->label('ㅤ')
-                // ->hiddenLabel()
-                ->options($localeOptions)
-                ->live()
-                ->dehydrated(false)
-                ->placeholder($defaultLocale)
-                ->default($defaultLocale);
-
-
-            return
-                Flex::make([
-                    Group::make()->gap(0)->schema($clonedSelect)->columnSpan($isLocaleHidden ? 12 : 8),
-                    $localeSelector->columnSpan(4)->hidden($isLocaleHidden)->grow(false),
-                ])->columnSpan($this->getColumnSpan());
-
-            // Grid::make(12)
-            // ->dense()
-            // ->schema([
-            //     Group::make()->gap(0)->schema($clonedSelect)->columnSpan($isLocaleHidden ? 12 : 8),
-            //     $localeSelector->columnSpan(4)->hidden($isLocaleHidden),
-            // ])
-            // ->columnSpan($this->getColumnSpan());
-        });
+        TranslatableFieldMacro::register();
     }
 }
